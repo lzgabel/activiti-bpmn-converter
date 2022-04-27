@@ -1,5 +1,5 @@
 <div align="center">
-<img src="./static/img/img.jpeg" width="400px"/>
+<img src="backend/static/img/img.jpeg" width="400px"/>
 
 <h1>Activiti BPMN Converter </h1>
 <p>
@@ -11,9 +11,11 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
 ### 1. 节点类型（nodeType)
 - serviceTask
     - service 任务节点
-- parallel
+- userTask
+    - user 任务节点    
+- parallelGateway
     - 并行节点
-- exclusive
+- exclusiveGateway
     - 排他节点
 
 ### 2. 数据结构
@@ -33,10 +35,10 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
 ```json
 {
     "nodeName":"排他",
-    "nodeType":"exclusive",
+    "nodeType":"exclusiveGateway",
     "nextNode":{
         "nodeName":"",
-        "nodeType":"exclusive",
+        "nodeType":"exclusiveGateway",
         "nextNode":null
     },
     "branchNodes":[
@@ -45,7 +47,7 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
             "conditionExpression":"=id>1",
             "nextNode":{
                 "nodeName":"审核人2.1",
-                "nodeType":"serviceTask",
+                "nodeType":"userTask",
                 "nextNode": null
             }
         },
@@ -54,7 +56,7 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
             "conditionExpression":"=id<1",
             "nextNode":{
                 "nodeName":"审核人2.2",
-                "nodeType":"serviceTask",
+                "nodeType":"userTask",
                 "nextNode":null
             }
         },
@@ -67,31 +69,31 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
 ```json
 {
     "nodeName":"并行任务",
-    "nodeType":"parallel",
+    "nodeType":"parallelGateway",
     "nextNode":{
         "nodeName":"",
-        "nodeType":"parallel",
+        "nodeType":"parallelGateway",
         "nextNode":null
     },
     "branchNodes":[
         {
             "nextNode":{
                 "nodeName":"审核人2.1",
-                "nodeType":"serviceTask",
+                "nodeType":"userTask",
                 "nextNode": null
             }
         },
         {
             "nextNode":{
                 "nodeName":"审核人2.2",
-                "nodeType":"serviceTask",
+                "nodeType":"userTask",
                 "nextNode":null
             }
         },
         {
             "nextNode":{
                 "nodeName":"审核人2.3",
-                "nodeType":"serviceTask",
+                "nodeType":"userTask",
                 "nextNode":null
             }
         },
@@ -109,17 +111,18 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
     },
     "processNode":{
         "nodeName":"审核人1",
-        "nodeType":"serviceTask",
+        "nodeType":"userTask",
+        "candidateGroups": "计算中心,行政部",
         "taskHeaders":{
             "a":"b",
             "e":"d"
         },
         "nextNode":{
             "nodeName":"排他",
-            "nodeType":"exclusive",
+            "nodeType":"exclusiveGateway",
             "nextNode":{
                 "nodeName":"排他网关",
-                "nodeType":"exclusive",
+                "nodeType":"exclusiveGateway",
                 "nextNode":null
             },
             "branchNodes":[
@@ -128,7 +131,10 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
                     "conditionExpression":"=id>1",
                     "nextNode":{
                         "nodeName":"审核人2.1",
-                        "nodeType":"serviceTask",
+                        "nodeType":"userTask",
+                        "assignee": "张三",
+                        "candidateUsers": "张三,李四",
+                        "candidateGroups": "计算中心,行政部",
                         "nextNode":null
                     }
                 },
@@ -137,7 +143,8 @@ Activiti-BPMN-Converter is a JSON to BPMN converter for activiti.
                     "conditionExpression":"=id<1",
                     "nextNode":{
                         "nodeName":"审核人2.2",
-                        "nodeType":"serviceTask",
+                        "nodeType":"userTask",
+                        "assignee": "张三",
                         "nextNode":null
                     }
                 }

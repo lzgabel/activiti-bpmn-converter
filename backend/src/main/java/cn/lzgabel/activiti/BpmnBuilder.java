@@ -9,8 +9,8 @@ import org.activiti.bpmn.BpmnAutoLayout;
 import org.activiti.bpmn.converter.BpmnXMLConverter;
 import org.activiti.bpmn.model.Process;
 import org.activiti.bpmn.model.*;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -124,13 +124,25 @@ public class BpmnBuilder {
 
     private static String create(String fromId, JSONObject flowNode) throws InvocationTargetException, IllegalAccessException {
         String nodeType = flowNode.getString("nodeType");
-        if (Type.PARALLEL.isEqual(nodeType)) {
+        if (Type.PARALLEL_GATEWAY.isEqual(nodeType)) {
             return createParallelGatewayBuilder(fromId, flowNode);
-        } else if (Type.EXCLUSIVE.isEqual(nodeType)) {
+        } else if (Type.EXCLUSIVE_GATEWAY.isEqual(nodeType)) {
             return createExclusiveGatewayBuilder(fromId, flowNode);
         } else if (Type.SERVICE_TASK.isEqual(nodeType)) {
             flowNode.put("incoming", Collections.singletonList(fromId));
-            String id = createTask(flowNode);
+            String id = createServiceTask(flowNode);
+
+            // 如果当前任务还有后续任务，则遍历创建后续任务
+            JSONObject nextNode = flowNode.getJSONObject("nextNode");
+            if (Objects.nonNull(nextNode)) {
+                FlowElement flowElement = model.getFlowElement(id);
+                return create(id, nextNode);
+            } else {
+                return id;
+            }
+        } else if (Type.USER_TASK.isEqual(nodeType)) {
+            flowNode.put("incoming", Collections.singletonList(fromId));
+            String id = createUserTask(flowNode);
 
             // 如果当前任务还有后续任务，则遍历创建后续任务
             JSONObject nextNode = flowNode.getJSONObject("nextNode");
@@ -307,7 +319,7 @@ public class BpmnBuilder {
         return parallelGatewayId;
     }
 
-    private static String createTask(JSONObject flowNode) {
+    private static String createServiceTask(JSONObject flowNode) {
         List<String> incoming = flowNode.getJSONArray("incoming").toJavaList(String.class);
         // 自动生成id
         String id = id("serviceTask");
@@ -316,6 +328,35 @@ public class BpmnBuilder {
             serviceTask.setName(flowNode.getString("nodeName"));
             serviceTask.setId(id);
             process.addFlowElement(serviceTask);
+            process.addFlowElement(connect(incoming.get(0), id));
+        }
+        return id;
+    }
+
+    private static String createUserTask(JSONObject flowNode) {
+        List<String> incoming = flowNode.getJSONArray("incoming").toJavaList(String.class);
+        // 自动生成id
+        String id = id("userTask");
+        if (incoming != null && !incoming.isEmpty()) {
+            UserTask userTask = new UserTask();
+            userTask.setName(flowNode.getString("nodeName"));
+            userTask.setId(id);
+            Optional.ofNullable(flowNode.getString("assignee"))
+                    .filter(StringUtils::isNotBlank)
+                    .ifPresent(userTask::setAssignee);
+
+            Optional.ofNullable(flowNode.getJSONArray("candidateUsers"))
+                    .map(e -> e.toJavaList(String.class))
+                    .filter(CollectionUtils::isNotEmpty)
+                    .ifPresent(userTask::setCandidateUsers);
+
+
+            Optional.ofNullable(flowNode.getJSONArray("candidateGroups"))
+                    .map(e -> e.toJavaList(String.class))
+                    .filter(CollectionUtils::isNotEmpty)
+                    .ifPresent(userTask::setCandidateGroups);
+
+            process.addFlowElement(userTask);
             process.addFlowElement(connect(incoming.get(0), id));
         }
         return id;
@@ -347,12 +388,17 @@ public class BpmnBuilder {
         /**
          * 并行事件
          */
-        PARALLEL("parallel", ParallelGateway.class),
+        PARALLEL_GATEWAY("parallelGateway", ParallelGateway.class),
 
         /**
          * 排他事件
          */
-        EXCLUSIVE("exclusive", ExclusiveGateway.class),
+        EXCLUSIVE_GATEWAY("exclusiveGateway", ExclusiveGateway.class),
+
+        /**
+         * 用户任务
+         */
+        USER_TASK("userTask", UserTask.class),
 
         /**
          * 任务
